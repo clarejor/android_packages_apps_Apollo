@@ -52,6 +52,10 @@ import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 
+// tmtmtm
+import android.util.Log; 
+import android.net.Uri; 
+
 import com.andrew.apollo.IApolloService;
 import com.andrew.apollo.MusicPlaybackService;
 import com.andrew.apollo.R;
@@ -79,6 +83,8 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
         OnSeekBarChangeListener,
         GestureDetector.OnGestureListener,
         GestureDetector.OnDoubleTapListener {
+
+    private static final String TAG = "Apollo AudioPlayerActivity";  // tmtmtm
 
     // Message to refresh the time
     private static final int REFRESH_TIME = 1;
@@ -161,6 +167,8 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
     
     private GestureDetectorCompat mDetector;
 
+    private String intentDataPath = null;
+
     /**
      * {@inheritDoc}
      */
@@ -204,6 +212,21 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
         
         // Cache all the items
         initPlaybackControls();
+
+        // tmtmtm
+        Log.i(TAG, "onCreate");  // tmtmtm
+        Intent intent = getIntent();
+        if(intent!=null) {
+            String action = intent.getAction();
+            if(action.equals(Intent.ACTION_VIEW)) {
+                Uri intentData = intent.getData();
+                Log.i(TAG, "onCreate Intent.ACTION_VIEW intentData="+intentData);  // tmtmtm
+                if(intentData!=null) {
+                    intentDataPath = intentData.getPath();
+                    // will be played when service becomes available
+                }
+            }
+        }
     }
 
     /**
@@ -212,6 +235,24 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
     @Override
     public void onServiceConnected(final ComponentName name, final IBinder service) {
         mService = IApolloService.Stub.asInterface(service);
+        Log.i(TAG, "onServiceConnected mService="+mService);  // tmtmtm
+
+        // tmtmtm: play the song from the VIEW-intent
+        if(intentDataPath!=null) {
+            Log.i(TAG, "onServiceConnected intentDataPath="+intentDataPath);  // tmtmtm
+            if(mService!=null) {
+                try {
+                    mService.openFile(intentDataPath);
+                    // if the user taps on play, the externally selected song will be played back
+                    // todo: unfortunately, the UI will not be updated to show the song title, artist, cover-art etc.
+                } catch(Exception ex) {
+                    Log.e(TAG, "onServiceConnected ex mService.openFile("+intentDataPath+")",ex);  // tmtmtm
+                }
+
+                intentDataPath = null;
+            }
+        }
+
         // Set the playback drawables
         updatePlaybackControls();
         // Current info
@@ -226,6 +267,7 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
     @Override
     public void onServiceDisconnected(final ComponentName name) {
         mService = null;
+        Log.i(TAG, "onServiceDisconnected");  // tmtmtm
     }
 
     /**

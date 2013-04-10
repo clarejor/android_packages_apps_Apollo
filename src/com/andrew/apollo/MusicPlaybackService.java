@@ -72,6 +72,9 @@ import java.util.TreeSet;
  */
 @SuppressLint("NewApi")
 public class MusicPlaybackService extends Service {
+
+    private static final String TAG = "Apollo MusicPlaybackService";  // tmtmtm
+
     /**
      * Indicates that the music has paused or resumed
      */
