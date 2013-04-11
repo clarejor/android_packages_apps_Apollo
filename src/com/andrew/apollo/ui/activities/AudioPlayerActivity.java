@@ -218,7 +218,7 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
         Intent intent = getIntent();
         if(intent!=null) {
             String action = intent.getAction();
-            if(action.equals(Intent.ACTION_VIEW)) {
+            if(action!=null && action.equals(Intent.ACTION_VIEW)) {
                 Uri intentData = intent.getData();
                 Log.i(TAG, "onCreate Intent.ACTION_VIEW intentData="+intentData);  // tmtmtm
                 if(intentData!=null) {
