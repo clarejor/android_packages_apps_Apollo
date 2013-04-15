@@ -53,8 +53,8 @@ import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 
 // tmtmtm
-import android.util.Log; 
-import android.net.Uri; 
+import android.util.Log;
+import android.net.Uri;
 
 import com.andrew.apollo.IApolloService;
 import com.andrew.apollo.MusicPlaybackService;
