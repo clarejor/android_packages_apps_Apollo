@@ -442,6 +442,14 @@ public class MusicPlaybackService extends Service {
      */
     private FavoritesStore mFavoritesCache;
 
+	protected boolean mSuspended;
+
+	protected boolean mPlayingWhenSuspended;
+
+	private long mLastKnownDuration;
+
+	private long mLastKnownPosition;
+
     /**
      * {@inheritDoc}
      */
@@ -756,7 +764,7 @@ public class MusicPlaybackService extends Service {
      * @param storagePath The path to mount point for the removed media
      */
     public void closeExternalStorageFiles(final String storagePath) {
-        stop(true);
+        stop(false);
         notifyChange(QUEUE_CHANGED);
         notifyChange(META_CHANGED);
     }
@@ -780,14 +788,24 @@ public class MusicPlaybackService extends Service {
                     if (action.equals(Intent.ACTION_MEDIA_EJECT)) {
                         saveQueue(true);
                         mQueueIsSaveable = false;
+                        mPlayingWhenSuspended = isPlaying();
+                        mLastKnownDuration = duration();
+                        mLastKnownPosition = position();
+                        pause();
+                        mSuspended = true;
                         closeExternalStorageFiles(intent.getData().getPath());
                     } else if (action.equals(Intent.ACTION_MEDIA_MOUNTED)) {
                         mMediaMountedCount++;
                         mCardId = getCardId();
                         reloadQueue();
                         mQueueIsSaveable = true;
+                        mSuspended = false;
                         notifyChange(QUEUE_CHANGED);
                         notifyChange(META_CHANGED);
+
+                        if(mPlayingWhenSuspended) {
+                            play();
+                        }
                     }
                 }
             };
@@ -1212,6 +1230,10 @@ public class MusicPlaybackService extends Service {
      * Notify the change-receivers that something has changed.
      */
     private void notifyChange(final String what) {
+        if(mSuspended) {
+            return;
+        }
+
         final Intent intent = new Intent(what);
         intent.putExtra("id", getAudioId());
         intent.putExtra("artist", getArtistName());
@@ -1747,7 +1769,9 @@ public class MusicPlaybackService extends Service {
      * @return The current playback position in miliseconds
      */
     public long position() {
-        if (mPlayer.isInitialized()) {
+        if(mSuspended) {
+            return mLastKnownPosition;
+        } else if (mPlayer.isInitialized()) {
             return mPlayer.position();
         }
         return -1;
@@ -1759,7 +1783,9 @@ public class MusicPlaybackService extends Service {
      * @return The duration of the current track in miliseconds
      */
     public long duration() {
-        if (mPlayer.isInitialized()) {
+        if(mSuspended) {
+            return mLastKnownDuration;
+        } else if (mPlayer.isInitialized()) {
             return mPlayer.duration();
         }
         return -1;
