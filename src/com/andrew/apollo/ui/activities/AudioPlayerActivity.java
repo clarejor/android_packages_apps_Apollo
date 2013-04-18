@@ -506,18 +506,21 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
      * Sets the track name, album name, and album art.
      */
     private void updateNowPlayingInfo() {
-        // Set the track name
-        mTrackName.setText(MusicUtils.getTrackName());
-        // Set the artist name
-        mArtistName.setText(MusicUtils.getArtistName());
-        // Set the total time
-        mTotalTime.setText(MusicUtils.makeTimeString(this, MusicUtils.duration() / 1000));
-        // Set the album art
-        mImageFetcher.loadCurrentArtwork(mAlbumArt);
-        // Set the small artwork
-        mImageFetcher.loadCurrentArtwork(mAlbumArtSmall);
-        // Update the current time
-        queueNextRefresh(1);
+        if (!MusicUtils.isSuspended()) {
+            // Set the track name
+            mTrackName.setText(MusicUtils.getTrackName());
+            // Set the artist name
+            mArtistName.setText(MusicUtils.getArtistName());
+            // Set the total time
+            mTotalTime.setText(MusicUtils.makeTimeString(this,
+                    MusicUtils.duration() / 1000));
+            // Set the album art
+            mImageFetcher.loadCurrentArtwork(mAlbumArt);
+            // Set the small artwork
+            mImageFetcher.loadCurrentArtwork(mAlbumArtSmall);
+            // Update the current time
+            queueNextRefresh(1);
+        }
 
     }
 

@@ -1815,6 +1815,13 @@ public class MusicPlaybackService extends Service {
     }
 
     /**
+     * @return True if an unmount has occurred.
+     */
+    public boolean isSuspended() {
+        return mSuspended;
+    }
+    
+    /**
      * True if the current track is a "favorite", false otherwise
      */
     public boolean isFavorite() {
@@ -2767,6 +2774,14 @@ public class MusicPlaybackService extends Service {
             return mService.get().isPlaying();
         }
 
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean isSuspended() throws RemoteException {
+            return mService.get().isSuspended();
+        }
+        
         /**
          * {@inheritDoc}
          */

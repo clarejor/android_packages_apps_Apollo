@@ -20,6 +20,7 @@ interface IApolloService
     void refresh();
     boolean isFavorite();
     boolean isPlaying();
+    boolean isSuspended();
     long [] getQueue();
     long duration();
     long position();

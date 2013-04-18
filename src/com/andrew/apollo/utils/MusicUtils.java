@@ -313,6 +313,19 @@ public final class MusicUtils {
     }
 
     /**
+     * @return True if an unmount event has occurred.
+     */
+    public static final boolean isSuspended() {
+        if (mService != null) {
+            try {
+                return mService.isSuspended();
+            } catch (final RemoteException ignored) {
+            }
+        }
+        return false;
+    }
+    
+    /**
      * @return The current shuffle mode.
      */
     public static final int getShuffleMode() {
