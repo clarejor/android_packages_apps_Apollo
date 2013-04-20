@@ -29,14 +29,19 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewPager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.Window;
+import android.view.GestureDetector;
 import android.view.animation.AnimationUtils;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -71,7 +76,9 @@ import java.lang.ref.WeakReference;
  * @author Andrew Neal (andrewdneal@gmail.com)
  */
 public class AudioPlayerActivity extends FragmentActivity implements ServiceConnection,
-        OnSeekBarChangeListener {
+        OnSeekBarChangeListener,
+        GestureDetector.OnGestureListener,
+        GestureDetector.OnDoubleTapListener {
 
     // Message to refresh the time
     private static final int REFRESH_TIME = 1;
@@ -151,6 +158,8 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
     private boolean mIsPaused = false;
 
     private boolean mFromTouch = false;
+    
+    private GestureDetectorCompat mDetector;
 
     /**
      * {@inheritDoc}
@@ -190,6 +199,9 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
         // Set the layout
         setContentView(R.layout.activity_player_base);
 
+        mDetector = new GestureDetectorCompat(this,this);
+        mDetector.setOnDoubleTapListener(this);
+        
         // Cache all the items
         initPlaybackControls();
     }
@@ -735,6 +747,73 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
         startActivity(Intent.createChooser(shareIntent, getString(R.string.share_track_using)));
     }
 
+    @Override 
+    public boolean onTouchEvent(MotionEvent event){ 
+        this.mDetector.onTouchEvent(event);
+        // Be sure to call the superclass implementation
+        return super.onTouchEvent(event);
+    }
+    
+    @Override
+    public boolean onDoubleTap(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onDoubleTapEvent(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onSingleTapConfirmed(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onDown(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+        try {
+            if(velocityX < 0) {
+                mService.prev();
+            } else {
+                mService.next();
+            }
+        } catch (RemoteException ex) {
+        }
+        return true;
+    }
+
+    @Override
+    public void onLongPress(MotionEvent e) {
+        Log.d("JORDAN", "onLongPress");
+    }
+
+    @Override
+    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+        return false;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent e) {
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+        try {
+            if(mService.isPlaying()) {
+                mService.pause();
+            } else {
+                mService.play();
+            }
+        } catch (RemoteException ex) {
+        }
+        return true;
+    }
+    
     /**
      * Used to scan backwards through the track
      */
