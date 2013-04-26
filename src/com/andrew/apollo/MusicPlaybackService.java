@@ -858,8 +858,6 @@ public class MusicPlaybackService extends Service {
                         Log.d("JORDAN", "mPausedByTransientLossOfFocus = " + mPausedByTransientLossOfFocus);
                         Log.d("JORDAN", "mPausedByMediaEject = " + mPausedByMediaEject);
                         Log.d("JORDAN", "isPlaying = " + isPlaying());
-                        notifyChange(QUEUE_CHANGED);
-                        notifyChange(META_CHANGED);
 
                         // Is the current file located on the mounted media?
                         Log.d("JORDAN", "#### mFileToPlay: " + mFileToPlay);
@@ -868,6 +866,7 @@ public class MusicPlaybackService extends Service {
                                 Log.d("JORDAN", "### current file available!");
                                 reloadQueue();
                                 mQueueIsSaveable = true;
+                                notifyChange(QUEUE_CHANGED);
                                 if (!isPlaying()
                                         && !mPausedByTransientLossOfFocus
                                         && !mPausedByPowerLoss) {
@@ -2543,7 +2542,7 @@ public class MusicPlaybackService extends Service {
                                 if(!service.isPlaying() && !service.mPausedByMediaEject && !service.mPausedByPowerLoss) {
                                     Log.d("JORDAN", "calling service.play(), mCurrentVolume = " + mCurrentVolume);
                                     service.play();
-                                    service.mPlayer.setVolume(mCurrentVolume);                                   
+                                    service.mPlayer.setVolume(mCurrentVolume);                                  
                                 }
                                 service.mPausedByTransientLossOfFocus = false;
                             } else {
