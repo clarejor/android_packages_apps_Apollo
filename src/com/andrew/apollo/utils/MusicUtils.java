@@ -313,12 +313,12 @@ public final class MusicUtils {
     }
 
     /**
-     * @return True if an unmount event has occurred.
+     * @return True if the currently playing file is available on the filesystem
      */
-    public static final boolean isSuspended() {
+    public static final boolean isFileAvailable() {
         if (mService != null) {
             try {
-                return mService.isSuspended();
+                return mService.isFileAvailable();
             } catch (final RemoteException ignored) {
             }
         }
@@ -574,7 +574,7 @@ public final class MusicUtils {
      */
     public static void playAll(final Context context, final long[] list, int position,
             final boolean forceShuffle) {
-        if (list.length == 0 || mService == null) {
+        if (list == null || list.length == 0 || mService == null) {
             return;
         }
         try {
