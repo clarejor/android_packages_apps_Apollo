@@ -1124,9 +1124,10 @@ public class MusicPlaybackService extends Service {
         boolean available = true;
         do {
             nextPos = doGetNextPosition(force);
-            Log.d("JORDAN", "deGetNextPosition returned " + nextPos + " (" + mPlayList[nextPos] + ")");
+            Log.d("JORDAN", "doGetNextPosition returned " + nextPos);
             
             if(nextPos >= 0 && nextPos < mPlayList.length) {
+                Log.d("JORDAN", "..which is song " + mPlayList[nextPos]);
                 available = isFileReadable(mPlayList[nextPos]);
             } else {
                 return -1;
@@ -1329,7 +1330,7 @@ public class MusicPlaybackService extends Service {
      * Notify the change-receivers that something has changed.
      */
     private void notifyChange(final String what) {
-        if(mPausedByMediaEject) {
+        if(!isFileReadable(mPlayList[mPlayPos])) {
             return;
         }
 
@@ -1422,7 +1423,6 @@ public class MusicPlaybackService extends Service {
         if (!mQueueIsSaveable) {
             return;
         }
-        Log.d("JORDAN", "saving queue: ");
         final SharedPreferences.Editor editor = mPreferences.edit();
         if (full) {
             final StringBuilder q = new StringBuilder();
@@ -1935,6 +1935,7 @@ public class MusicPlaybackService extends Service {
         // Get the file path
         String filePath = cursor.getString(cursor.getColumnIndex("_data"));
         Log.d("JORDAN", "filePath = " + filePath);
+        cursor.close();
         
         // Make sure this file isn't on one of the unmounted paths
         if (mUnmountedPaths != null) {
@@ -2679,19 +2680,29 @@ public class MusicPlaybackService extends Service {
          *            you want to play
          */
         public void setNextDataSource(final String path) {
+            Log.d("JORDAN", "setNextDataSource: " + path);
+            Log.d("JORDAN", "mIsInitialized: " + mIsInitialized);
+            if(!mIsInitialized) {
+                return;
+            }
             mCurrentMediaPlayer.setNextMediaPlayer(null);
             if (mNextMediaPlayer != null) {
+                Log.d("JORDAN", "releasing mNextMediaPlayer");
                 mNextMediaPlayer.release();
                 mNextMediaPlayer = null;
             }
             if (path == null) {
+                Log.d("JORDAN", "path null");
                 return;
             }
             mNextMediaPlayer = new MediaPlayer();
             mNextMediaPlayer.setWakeMode(mService.get(), PowerManager.PARTIAL_WAKE_LOCK);
             mNextMediaPlayer.setAudioSessionId(getAudioSessionId());
             if (setDataSourceImpl(mNextMediaPlayer, path)) {
-                mCurrentMediaPlayer.setNextMediaPlayer(mNextMediaPlayer);
+                Log.d("JORDAN", "setNextMediaPlayer, mCurrentMediaPLayer = " + mCurrentMediaPlayer);
+                if(mCurrentMediaPlayer != null) {
+                    mCurrentMediaPlayer.setNextMediaPlayer(mNextMediaPlayer);
+                }
             } else {
                 if (mNextMediaPlayer != null) {
                     mNextMediaPlayer.release();
