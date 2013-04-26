@@ -32,6 +32,7 @@ import android.media.MediaPlayer.OnCompletionListener;
 import android.media.RemoteControlClient;
 import android.media.audiofx.AudioEffect;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -388,6 +389,11 @@ public class MusicPlaybackService extends Service {
     protected boolean mPausedByAudioBecomingNoisy;
     
     /**
+     * True if we were paused by a POWER_DISCONNECTED event
+     */
+    protected boolean mPausedByPowerLoss;
+    
+    /**
      * Whether the currently playing file is available for reading
      */
     protected boolean mIsFileToPlayMounted = true;
@@ -395,6 +401,11 @@ public class MusicPlaybackService extends Service {
     private long mLastKnownDuration;
 
     private long mLastKnownPosition;
+    
+    /**
+     * List of paths unmounted while Apollo is running
+     */
+    private LinkedList<String> mUnmountedPaths;
     
     /**
      * Returns true if the Apollo is sent to the background, false otherwise
@@ -555,7 +566,8 @@ public class MusicPlaybackService extends Service {
         // Initialize the preferences
         mPreferences = getSharedPreferences("Service", 0);
         mCardId = getCardId();
-
+        
+        mUnmountedPaths = new LinkedList<String>();
         registerExternalStorageListener();
 
         // Initialze the media player
@@ -573,6 +585,8 @@ public class MusicPlaybackService extends Service {
         filter.addAction(REPEAT_ACTION);
         filter.addAction(SHUFFLE_ACTION);
         filter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
+        filter.addAction(Intent.ACTION_POWER_CONNECTED);
         // Attach the broadcast listener
         registerReceiver(mIntentReceiver, filter);
 
@@ -773,12 +787,18 @@ public class MusicPlaybackService extends Service {
     }
 
     /**
-     * Called when we receive a ACTION_MEDIA_EJECT notification.
-     *
-     * @param storagePath The path to mount point for the removed media
+     * Called when we receive an ACTION_MEDIA_EJECT notification.
      */
-    public void closeExternalStorageFiles(final String storagePath) {
-        stop(false);
+    public void closeExternalStorageFiles() {
+        if(mPlayPos >= 0 && mPlayPos < mPlayList.length && 
+                !isFileReadable(mPlayList[mPlayPos])) {
+            stop(false);
+        }
+        if(mNextPlayPos >= 0 && mNextPlayPos < mPlayList.length &&
+                !isFileReadable(mPlayList[mNextPlayPos])) {
+            mPlayer.stopNext();
+            
+        }
         notifyChange(QUEUE_CHANGED);
         notifyChange(META_CHANGED);
     }
@@ -800,45 +820,40 @@ public class MusicPlaybackService extends Service {
                 public void onReceive(final Context context, final Intent intent) {
                     final String action = intent.getAction();
                     if (action.equals(Intent.ACTION_MEDIA_EJECT)) {
-                        saveQueue(true);
-                        mQueueIsSaveable = false;
-                        
+
                         // Get the path that was unmounted
                         String mountPath = intent.getData().getPath();
+                        mUnmountedPaths.add(mountPath);
                         Log.d("JORDAN", "#### EJECTED: " + mountPath);
                         Log.d("JORDAN", "mPausedByTransientLossOfFocus = " + mPausedByTransientLossOfFocus);
                         Log.d("JORDAN", "isPlaying = " + isPlaying());
                         
-                        // Get the file path for the current song
-                        String filePath = mFileToPlay;
-                        Log.d("JORDAN", "#### mFileToPlay: " + filePath);
-                        if(mCursor != null) {
-                            int column_index = mCursor
-                                    .getColumnIndexOrThrow(MediaStore.Audio.Media.DATA);
-                            mCursor.moveToFirst();
-                            filePath = mCursor.getString(column_index);
-                            Log.d("JORDAN", "### File Path: " + filePath);
-                            if (filePath.startsWith(mountPath)) {
-                                mIsFileToPlayMounted = false;
-                                mLastKnownDuration = duration();
-                                mLastKnownPosition = position();
-                                if (isPlaying()) {
-                                    Log.d("JORDAN", "calling pause()");
-                                    pause();
-                                    mPausedByMediaEject = true;
-                                } else {
-                                    mPausedByMediaEject = 
-                                            (mPausedByTransientLossOfFocus || mPausedByAudioBecomingNoisy);
-                                }
-                                closeExternalStorageFiles(intent.getData().getPath());
+                        // Is the current file located on the ejected media?
+                        Log.d("JORDAN", "#### mFileToPlay: " + mFileToPlay);
+                        if (!isFileReadable(mPlayList[mPlayPos])) {
+                            // The current file was ejected
+                            Log.d("JORDAN", "### current file ejected!");
+                            saveQueue(true);
+                            mQueueIsSaveable = false;
+                            mIsFileToPlayMounted = false;
+                            mLastKnownDuration = duration();
+                            mLastKnownPosition = position();
+                            if (isPlaying()) {
+                                Log.d("JORDAN", "calling pause()");
+                                pause();
+                                mPausedByMediaEject = true;
+                            } else {
+                                mPausedByMediaEject = 
+                                        (mPausedByTransientLossOfFocus || mPausedByAudioBecomingNoisy || mPausedByPowerLoss);
                             }
-                        }                    
+                        }
+                        closeExternalStorageFiles();
                     } else if (action.equals(Intent.ACTION_MEDIA_MOUNTED)) {
                         mMediaMountedCount++;
                         mCardId = getCardId();
-                        reloadQueue();
-                        mQueueIsSaveable = true;
+                        
                         String mountPath = intent.getData().getPath();
+                        mUnmountedPaths.remove(mountPath);
                         Log.d("JORDAN", "#### MOUNTED: " + mountPath);
                         Log.d("JORDAN", "mPausedByTransientLossOfFocus = " + mPausedByTransientLossOfFocus);
                         Log.d("JORDAN", "mPausedByMediaEject = " + mPausedByMediaEject);
@@ -846,29 +861,22 @@ public class MusicPlaybackService extends Service {
                         notifyChange(QUEUE_CHANGED);
                         notifyChange(META_CHANGED);
 
-                        // Get the file path for the current song
-                        String filePath = mFileToPlay;
-                        Log.d("JORDAN", "#### mFileToPlay: " + filePath);
-                        if (mCursor != null) {
-                            int column_index = mCursor
-                                    .getColumnIndexOrThrow(MediaStore.Audio.Media.DATA);
-                            mCursor.moveToFirst();
-                            filePath = mCursor.getString(column_index);
-                            Log.d("JORDAN", "### File Path: " + filePath);
-                            if (filePath.startsWith(mountPath)) {
-                                if (mPausedByMediaEject) {
-                                    if (!isPlaying()
-                                            && !mPausedByTransientLossOfFocus) {
-                                        Log.d("JORDAN", "calling play()");
-                                        play();
-                                    }
-                                    mPausedByMediaEject = false;
+                        // Is the current file located on the mounted media?
+                        Log.d("JORDAN", "#### mFileToPlay: " + mFileToPlay);
+                        if (mPausedByMediaEject) {
+                            if (isFileReadable(mPlayList[mPlayPos])) {
+                                Log.d("JORDAN", "### current file available!");
+                                reloadQueue();
+                                mQueueIsSaveable = true;
+                                if (!isPlaying()
+                                        && !mPausedByTransientLossOfFocus
+                                        && !mPausedByPowerLoss) {
+                                    Log.d("JORDAN", "calling play()");
+                                    play();
                                 }
-                                mIsFileToPlayMounted = true;
+                                mPausedByMediaEject = false;
                             }
                         }
-                        // Hack since audioflinger kills our track
-                        play();
                     }
                 }
             };
@@ -908,7 +916,7 @@ public class MusicPlaybackService extends Service {
     private void stop(final boolean remove_status_icon) {
         if (mPlayer.isInitialized()) {
             mPlayer.stop();
-        }
+        }        
         mFileToPlay = null;
         if (mCursor != null) {
             mCursor.close();
@@ -978,6 +986,7 @@ public class MusicPlaybackService extends Service {
                 }
                 notifyChange(META_CHANGED);
             }
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
             return last - first + 1;
         }
     }
@@ -1083,6 +1092,7 @@ public class MusicPlaybackService extends Service {
                     mPlayPos = pos;
                     stop(false);
                     mPlayPos = pos;
+                    Log.d("JORDAN", "mPlayPos = " + mPlayPos);
                     mCursor = getCursorForId(mPlayList[mPlayPos]);
                 } else {
                     mOpenFailedCounter = 0;
@@ -1106,6 +1116,31 @@ public class MusicPlaybackService extends Service {
      * @return The next position to play.
      */
     private int getNextPosition(final boolean force) {
+        
+        // Skip some stuff if not available, but limit the number
+        // of skips to avoid an infinite loop
+        int skips = 0;
+        int nextPos = -1;
+        boolean available = true;
+        do {
+            nextPos = doGetNextPosition(force);
+            Log.d("JORDAN", "deGetNextPosition returned " + nextPos + " (" + mPlayList[nextPos] + ")");
+            
+            if(nextPos >= 0 && nextPos < mPlayList.length) {
+                available = isFileReadable(mPlayList[nextPos]);
+            } else {
+                return -1;
+            }
+            skips++;
+        } while(!available && skips < 5);
+        if(!available) {
+            return -1;
+        }
+        Log.d("JORDAN", "next pos = " + nextPos + " (" + mPlayList[nextPos] + ")");
+        return nextPos;
+    }
+    
+    private int doGetNextPosition(final boolean force) {
         if (!force && mRepeatMode == REPEAT_CURRENT) {
             if (mPlayPos < 0) {
                 return 0;
@@ -1387,13 +1422,14 @@ public class MusicPlaybackService extends Service {
         if (!mQueueIsSaveable) {
             return;
         }
-
+        Log.d("JORDAN", "saving queue: ");
         final SharedPreferences.Editor editor = mPreferences.edit();
         if (full) {
             final StringBuilder q = new StringBuilder();
             int len = mPlayListLen;
             for (int i = 0; i < len; i++) {
                 long n = mPlayList[i];
+                Log.d("JORDAN", i + ": " + n);
                 if (n < 0) {
                     continue;
                 } else if (n == 0) {
@@ -1449,6 +1485,7 @@ public class MusicPlaybackService extends Service {
         }
         if (id == mCardId) {
             q = mPreferences.getString("queue", "");
+            Log.d("JORDAN", "loading queue:");
         }
         int qlen = q != null ? q.length() : 0;
         if (qlen > 1) {
@@ -1460,6 +1497,7 @@ public class MusicPlaybackService extends Service {
                 if (c == ';') {
                     ensurePlayListCapacity(plen + 1);
                     mPlayList[plen] = n;
+                    Log.d("JORDAN", plen + ": " + n);
                     plen++;
                     n = 0;
                     shift = 0;
@@ -1482,6 +1520,7 @@ public class MusicPlaybackService extends Service {
                 return;
             }
             mPlayPos = pos;
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
             Cursor mCursor = getContentResolver().query(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, new String[] {
                         "_id"
@@ -1562,12 +1601,13 @@ public class MusicPlaybackService extends Service {
      * @param path The path of the file to open
      */
     public boolean openFile(final String path) {
+        Log.d("JORDAN", "openFile(\"" + path + "\")");
         synchronized (this) {
             if (path == null) {
                 return false;
             }
 
-            // If mCursor is null, try to associate path with a database cursor
+            // Try to associate path with a database cursor
             if (mCursor == null) {
                 final ContentResolver resolver = getContentResolver();
                 Uri uri;
@@ -1580,12 +1620,11 @@ public class MusicPlaybackService extends Service {
                 } else {
                     uri = MediaStore.Audio.Media.getContentUriForPath(path);
                     where = MediaStore.Audio.Media.DATA + "=?";
-                    selectionArgs = new String[] {
-                        path
-                    };
+                    selectionArgs = new String[] { path };
                 }
                 try {
-                    mCursor = resolver.query(uri, PROJECTION, where, selectionArgs, null);
+                    mCursor = resolver.query(uri, PROJECTION, where,
+                            selectionArgs, null);
                     if (mCursor != null) {
                         if (mCursor.getCount() == 0) {
                             mCursor.close();
@@ -1596,12 +1635,14 @@ public class MusicPlaybackService extends Service {
                             mPlayListLen = 1;
                             mPlayList[0] = mCursor.getLong(IDCOLIDX);
                             mPlayPos = 0;
+                            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
                         }
                     }
                 } catch (final UnsupportedOperationException ex) {
                 }
             }
             mFileToPlay = path;
+            Log.d("JORDAN", "mFileToPlay: " + mFileToPlay);
             mPlayer.setDataSource(mFileToPlay);
             if (mPlayer.isInitialized()) {
                 mOpenFailedCounter = 0;
@@ -1879,10 +1920,41 @@ public class MusicPlaybackService extends Service {
     }
 
     /**
-     * @return True if the currently playing file is mounted.
+     * @return True if the given media id is readable on the filesystem.
      */
-    public boolean isFileAvailable() {
-        return mIsFileToPlayMounted;
+    public boolean isFileReadable(long id) {
+        Log.d("JORDAN", "isFileAvailable(" + id + ")");
+        
+        // Get the cursor for this id
+        Cursor cursor = getCursorForId(id);
+        if(cursor == null || cursor.getCount() == 0) {
+            Log.d("JORDAN", "couldn't get a cursor");
+            return false;
+        }
+        
+        // Get the file path
+        String filePath = cursor.getString(cursor.getColumnIndex("_data"));
+        Log.d("JORDAN", "filePath = " + filePath);
+        
+        // Make sure this file isn't on one of the unmounted paths
+        if (mUnmountedPaths != null) {
+            for (String mountPath : mUnmountedPaths) {
+                Log.d("JORDAN", "unmounted path: " + mountPath);
+                if (filePath.startsWith(mountPath)) {
+                    Log.d("JORDAN", "file is unmounted");
+                    return false;
+                }
+            }
+        }
+        
+        // Finally, make sure the file is readable
+        File file = new File(filePath);
+        if(!file.canRead()) {
+            Log.w("JORDAN", "file not readable");
+        } else {
+            Log.d("JORDAN", "file readable!! we all good");
+        }
+        return file.canRead();
     }
     
     /**
@@ -1930,6 +2002,7 @@ public class MusicPlaybackService extends Service {
             } else {
                 mPlayPos = mShuffler.nextInt(mPlayListLen);
             }
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
             mHistory.clear();
             openCurrentAndNext();
             if (oldId != getAudioId()) {
@@ -1950,6 +2023,9 @@ public class MusicPlaybackService extends Service {
      */
     public void play() {
         mPausedByAudioBecomingNoisy = false;
+        mPausedByTransientLossOfFocus = false;
+        mPausedByPowerLoss = false;
+        mPausedByMediaEject = false;
         
         mAudioManager.requestAudioFocus(mAudioFocusListener, AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN);
@@ -2004,23 +2080,28 @@ public class MusicPlaybackService extends Service {
      * Changes from the current track to the next track
      */
     public void gotoNext(final boolean force) {
+        Log.d("JORDAN", "gotoNext()");
+        Log.d("JORDAN", "mPlayListLen = " + mPlayListLen);
         synchronized (this) {
-            if (mPlayListLen <= 0) {
+            if (mPlayListLen <= 0) {  
                 return;
             }
             final int pos = getNextPosition(force);
+            Log.d("JORDAN", "next pos = " + pos);
             if (pos < 0) {
-                gotoIdleState();
-                if (mIsSupposedToBePlaying) {
-                    mIsSupposedToBePlaying = false;
-                    notifyChange(PLAYSTATE_CHANGED);
-                }
+                stop(true);
+                notifyChange(PLAYSTATE_CHANGED);
                 return;
             }
             mPlayPos = pos;
+            Log.d("JORDAN", "stop(false)");
             stop(false);
             mPlayPos = pos;
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
+            Log.d("JORDAN", "openCurrentAndNext()");
             openCurrentAndNext();
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
+            Log.d("JORDAN", "play()");
             play();
             notifyChange(META_CHANGED);
         }
@@ -2046,6 +2127,7 @@ public class MusicPlaybackService extends Service {
                     mPlayPos = mPlayListLen - 1;
                 }
             }
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
             stop(false);
             openCurrent();
             play();
@@ -2111,6 +2193,7 @@ public class MusicPlaybackService extends Service {
                     mPlayPos++;
                 }
             }
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
             notifyChange(QUEUE_CHANGED);
         }
     }
@@ -2145,6 +2228,7 @@ public class MusicPlaybackService extends Service {
                     mPlayListLen = 0;
                     doAutoShuffleUpdate();
                     mPlayPos = 0;
+                    Log.d("JORDAN", "mPlayPos = " + mPlayPos);
                     openCurrentAndNext();
                     play();
                     notifyChange(META_CHANGED);
@@ -2167,6 +2251,7 @@ public class MusicPlaybackService extends Service {
         synchronized (this) {
             stop(false);
             mPlayPos = index;
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
             openCurrentAndNext();
             play();
             notifyChange(META_CHANGED);
@@ -2204,6 +2289,7 @@ public class MusicPlaybackService extends Service {
                 play();
                 notifyChange(META_CHANGED);
             }
+            Log.d("JORDAN", "mPlayPos = " + mPlayPos);
         }
     }
 
@@ -2267,6 +2353,30 @@ public class MusicPlaybackService extends Service {
                 if(isPlaying()) {
                     pause();
                     mPausedByAudioBecomingNoisy = true;
+                }
+            } else if(Intent.ACTION_POWER_DISCONNECTED.equals(intent.getAction())) {
+                if(isPlaying()) {
+                    pause();
+                    mPausedByPowerLoss = true;
+                } else {
+                    mPausedByPowerLoss =
+                            mPausedByTransientLossOfFocus || mPausedByMediaEject || mPausedByAudioBecomingNoisy;
+                }
+            } else if(Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
+                if(mPausedByPowerLoss) {
+                    if(!isPlaying() && !mPausedByMediaEject) {
+                        if(!mPausedByTransientLossOfFocus) {
+                            Log.d("JORDAN", "power back, but we already have audio focus!");
+                            Log.d("JORDAN", "delaying playback 2500ms for DAC to reconnect");
+                            new Handler().postDelayed(new Runnable() {
+                                public void run() {
+                                    Log.d("JORDAN", "after delay, calling play()");
+                                    play();
+                                }
+                            }, 2500);
+                        }
+                    }
+                    mPausedByPowerLoss = false;
                 }
             }
             
@@ -2384,6 +2494,7 @@ public class MusicPlaybackService extends Service {
                     break;
                 case TRACK_WENT_TO_NEXT:
                     service.mPlayPos = service.mNextPlayPos;
+                    Log.d("JORDAN", "mPlayPos = " + service.mPlayPos);
                     if (service.mCursor != null) {
                         service.mCursor.close();
                     }
@@ -2414,7 +2525,7 @@ public class MusicPlaybackService extends Service {
                                 service.pause();
                             } else {
                                 service.mPausedByTransientLossOfFocus =
-                                        (service.mPausedByMediaEject || service.mPausedByAudioBecomingNoisy);
+                                        (service.mPausedByMediaEject || service.mPausedByAudioBecomingNoisy || service.mPausedByPowerLoss);
                             }
                             Log.d("JORDAN", "mPausedByTransientLossOfFocus = " + service.mPausedByTransientLossOfFocus);
                             break;
@@ -2428,7 +2539,7 @@ public class MusicPlaybackService extends Service {
                             Log.d("JORDAN", "mPausedByMediaEject = " + service.mPausedByMediaEject);
                             Log.d("JORDAN", "isPlaying = " + service.isPlaying());
                             if (service.mPausedByTransientLossOfFocus) {
-                                if(!service.isPlaying() && !service.mPausedByMediaEject) {
+                                if(!service.isPlaying() && !service.mPausedByMediaEject && !service.mPausedByPowerLoss) {
                                     Log.d("JORDAN", "calling service.play(), mCurrentVolume = " + mCurrentVolume);
                                     service.play();
                                     service.mPlayer.setVolume(mCurrentVolume);                                   
@@ -2726,6 +2837,10 @@ public class MusicPlaybackService extends Service {
                 mHandler.sendEmptyMessage(RELEASE_WAKELOCK);
             }
         }
+        
+        public void stopNext() {
+            mNextMediaPlayer.reset();
+        }
     }
 
     private static final class ServiceStub extends IApolloService.Stub {
@@ -2868,8 +2983,9 @@ public class MusicPlaybackService extends Service {
          * {@inheritDoc}
          */
         @Override
-        public boolean isFileAvailable() throws RemoteException {
-            return mService.get().isFileAvailable();
+        public boolean isCurrentFileAvailable() throws RemoteException {
+            MusicPlaybackService mps = mService.get();
+            return mps.isFileReadable(mps.mPlayList[mps.mPlayPos]);
         }
         
         /**

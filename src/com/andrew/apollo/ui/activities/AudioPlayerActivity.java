@@ -518,7 +518,7 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
      * Sets the track name, album name, and album art.
      */
     private void updateNowPlayingInfo() {
-        if (MusicUtils.isFileAvailable()) {
+        if (MusicUtils.isCurrentFileAvailable()) {
             // Set the track name
             mTrackName.setText(MusicUtils.getTrackName());
             // Set the artist name

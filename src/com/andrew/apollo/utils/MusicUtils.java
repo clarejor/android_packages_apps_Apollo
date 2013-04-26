@@ -315,10 +315,10 @@ public final class MusicUtils {
     /**
      * @return True if the currently playing file is available on the filesystem
      */
-    public static final boolean isFileAvailable() {
+    public static final boolean isCurrentFileAvailable() {
         if (mService != null) {
             try {
-                return mService.isFileAvailable();
+                return mService.isCurrentFileAvailable();
             } catch (final RemoteException ignored) {
             }
         }
