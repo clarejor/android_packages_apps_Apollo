@@ -108,7 +108,7 @@ public class ProfileActivity extends BaseActivity implements OnPageChangeListene
     public void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Temporay until I can work out a nice landscape layout
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        //setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         // Get the preferences
         mPreferences = PreferenceUtils.getInstance(this);

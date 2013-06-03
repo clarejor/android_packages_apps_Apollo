@@ -1428,7 +1428,7 @@ public class MusicPlaybackService extends Service {
                 i.addAction(ActionCodes.CLEAR_VARIABLE)
                         .addArg("%MALBUM");
             }
-
+            
             sendBroadcast(i);
             // }
             if (mBuildNotification) {

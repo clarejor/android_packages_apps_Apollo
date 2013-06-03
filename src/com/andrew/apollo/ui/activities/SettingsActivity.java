@@ -49,6 +49,8 @@ public class SettingsActivity extends PreferenceActivity {
 
     private PreferenceUtils mPreferences;
 
+    protected String MEDIA_SCAN = "media.scanner.scan.now";
+
     /**
      * {@inheritDoc}
      */
@@ -76,6 +78,10 @@ public class SettingsActivity extends PreferenceActivity {
         initData();
         // Removes the cache entries
         deleteCache();
+        // No media scan on storage mount
+        ignoreMountEvents();
+        // Runs media scanner
+        scanNow();
         // About
         showOpenSourceLicenses();
         // Update the version number
@@ -212,6 +218,38 @@ public class SettingsActivity extends PreferenceActivity {
                                 dialog.dismiss();
                             }
                         }).create().show();
+                return true;
+            }
+        });
+    }
+    
+    /**
+     * Disables media scanning on storage mount
+     */
+    private void ignoreMountEvents() {
+        final CheckBoxPreference ignoreMountEvents = (CheckBoxPreference)findPreference("ignore_mount_events");
+        ignoreMountEvents.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
+
+            @Override
+            public boolean onPreferenceChange(final Preference preference, final Object newValue) {
+                System.getProperties().setProperty("media.scanner.ignore.mount", newValue.toString());
+                return true;
+            }
+        });
+    }
+    
+    /**
+     * Runs the android media scanner
+     */
+    private void scanNow() {
+        final Preference scanNow = findPreference("scan_now");
+        scanNow.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+            @Override
+            public boolean onPreferenceClick(final Preference preference) {
+                final Intent scanMediaIntent = new Intent(SettingsActivity.this,
+                        MusicPlaybackService.class);
+                scanMediaIntent.setAction(MEDIA_SCAN);
+                sendBroadcast(scanMediaIntent);
                 return true;
             }
         });

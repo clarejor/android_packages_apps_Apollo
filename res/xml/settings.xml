@@ -63,6 +63,19 @@
             android:summary="@string/settings_delete_cache_summary"
             android:title="@string/settings_delete_cache_title" />
     </PreferenceCategory>
+    <!-- Media catetory -->
+    <PreferenceCategory android:title="@string/settings_media_category" >
+        <!-- Ignore mount events -->
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="ignore_mount_events"
+            android:summary="@string/settings_ignore_mount_events_summary"
+            android:title="@string/settings_ignore_mount_events_title" />
+        <!-- Scan now -->
+        <Preference
+            android:key="scan_now"
+            android:title="@string/settings_scan_now_title" />
+    </PreferenceCategory>
     <!-- About -->
     <PreferenceCategory android:title="@string/settings_about_category" >
         <PreferenceScreen android:title="@string/settings_about_apollo" >
