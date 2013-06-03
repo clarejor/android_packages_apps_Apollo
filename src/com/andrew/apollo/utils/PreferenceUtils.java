@@ -76,7 +76,7 @@ public final class PreferenceUtils {
     public static final String DOWNLOAD_MISSING_ARTIST_IMAGES = "download_missing_artist_images";
 
     // Enables lock screen controls on Honeycomb and above
-    public static final String USE_LOCKSREEN_CONTROLS = "use_lockscreen_controls";
+    public static final String USE_LOCKSREEN_CONTROLS = "lockscreen_controls";
 
     // Key used to set the overall theme color
     public static final String DEFAULT_THEME_COLOR = "default_theme_color";
@@ -96,9 +96,9 @@ public final class PreferenceUtils {
 
     /**
      * @param context The {@link Context} to use.
-     * @return A singelton of this class
+     * @return A singleton of this class
      */
-    public static final PreferenceUtils getInstace(final Context context) {
+    public static final PreferenceUtils getInstance(final Context context) {
         if (sInstance == null) {
             sInstance = new PreferenceUtils(context.getApplicationContext());
         }

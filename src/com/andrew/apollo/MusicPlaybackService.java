@@ -296,12 +296,13 @@ public class MusicPlaybackService extends Service {
 
     /**
      * Used to save the queue as reverse hexadecimal numbers, which we can
-     * generate faster than normal decimal or // hexadecimal numbers, which in
-     * turn allows us to save the playlist // more often without worrying too
+     * generate faster than normal decimal or hexadecimal numbers, which in
+     * turn allows us to save the playlist more often without worrying too
      * much about performance
      */
-    private static final char HEX_DIGITS[] = new char[] { '0', '1', '2', '3',
-            '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    private static final char HEX_DIGITS[] = new char[] {
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
 
     /**
      * Service stub
@@ -534,7 +535,7 @@ public class MusicPlaybackService extends Service {
         mRecentsCache = RecentStore.getInstance(this);
         mFavoritesCache = FavoritesStore.getInstance(this);
 
-        // Initialze the notification helper
+        // Initialize the notification helper
         mNotificationHelper = new NotificationHelper(this);
 
         // Initialize the image fetcher
@@ -554,7 +555,7 @@ public class MusicPlaybackService extends Service {
         mPlayerHandler = new MusicPlayerHandler(this, thread.getLooper());
         mDelayedStopHandler = new DelayedHandler(this);
 
-        // Initialze the audio manager and register any headset controls for
+        // Initialize the audio manager and register any headset controls for
         // playback
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         mMediaButtonReceiverComponent = new ComponentName(getPackageName(),
@@ -575,11 +576,11 @@ public class MusicPlaybackService extends Service {
         mUnmountedPaths = new LinkedList<String>();
         registerExternalStorageListener();
 
-        // Initialze the media player
+        // Initialize the media player
         mPlayer = new MultiPlayer(this);
         mPlayer.setHandler(mPlayerHandler);
 
-        // Initialze the intent filter and each action
+        // Initialize the intent filter and each action
         final IntentFilter filter = new IntentFilter();
         filter.addAction(SERVICECMD);
         filter.addAction(TOGGLEPAUSE_ACTION);

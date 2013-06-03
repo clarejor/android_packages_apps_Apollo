@@ -25,12 +25,14 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.media.audiofx.AudioEffect;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.provider.MediaStore.Audio.Playlists;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewPager;
@@ -233,26 +235,19 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
      * {@inheritDoc}
      */
     @Override
+    public void onNewIntent(Intent intent) {
+        setIntent(intent);
+        startPlayback();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void onServiceConnected(final ComponentName name, final IBinder service) {
         mService = IApolloService.Stub.asInterface(service);
-        Log.i(TAG, "onServiceConnected mService="+mService);  // tmtmtm
-
-        // tmtmtm: play the song from the VIEW-intent
-        if(intentDataPath!=null) {
-            Log.i(TAG, "onServiceConnected intentDataPath="+intentDataPath);  // tmtmtm
-            if(mService!=null) {
-                try {
-                    mService.openFile(intentDataPath);
-                    // if the user taps on play, the externally selected song will be played back
-                    // todo: unfortunately, the UI will not be updated to show the song title, artist, cover-art etc.
-                } catch(Exception ex) {
-                    Log.e(TAG, "onServiceConnected ex mService.openFile("+intentDataPath+")",ex);  // tmtmtm
-                }
-
-                intentDataPath = null;
-            }
-        }
-
+        // Check whether we were asked to start any playback
+        startPlayback();
         // Set the playback drawables
         updatePlaybackControls();
         // Current info
@@ -576,6 +571,50 @@ public class AudioPlayerActivity extends FragmentActivity implements ServiceConn
             queueNextRefresh(1);
         }
 
+    }
+
+    /**
+     * Checks whether the passed intent contains a playback request,
+     * and starts playback if that's the case
+     */
+    private void startPlayback() {
+        Intent intent = getIntent();
+
+        if (intent == null || mService == null) {
+            return;
+        }
+
+        Uri uri = intent.getData();
+        String mimeType = intent.getType();
+        boolean handled = false;
+
+        if (uri != null && uri.toString().length() > 0) {
+            MusicUtils.playFile(this, uri);
+            handled = true;
+        } else if (Playlists.CONTENT_TYPE.equals(mimeType)) {
+            long id = intent.getLongExtra("playlistId", -1);
+            if (id < 0) {
+                String idString = intent.getStringExtra("playlist");
+                if (idString != null) {
+                    try {
+                        id = Long.parseLong(idString);
+                    } catch (NumberFormatException e) {
+                        // ignore
+                    }
+                }
+            }
+            if (id >= 0) {
+                MusicUtils.playPlaylist(this, id);
+                handled = true;
+            }
+        }
+
+        if (handled) {
+            // Make sure to process intent only once
+            setIntent(new Intent());
+            // Refresh the queue
+            ((QueueFragment)mPagerAdapter.getFragment(0)).refreshQueue();
+        }
     }
 
     /**

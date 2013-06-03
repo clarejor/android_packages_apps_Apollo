@@ -64,6 +64,7 @@
     <string name="sort_order_entry_number_of_albums">Number of albums</string>
 
     <!-- Default playlist names -->
+    <string name="playlist_favorite">Favorite</string> <!-- used in voice search processing only -->
     <string name="playlist_favorites">Favorites</string>
     <string name="playlist_last_added">Last added</string>
 
@@ -120,9 +121,9 @@
     <string name="settings_author_title">Author</string>
     <string name="settings_about_apollo">About Apollo</string>
     <string name="settings_special_thanks">Special thanks</string>
-    <string name="settings_cyanogenmod_title">CyanogenMod</string>
-    <string name="settings_self_title">Andrew Neal</string>
-    <string name="settings_lopez_title">A.J. Lopez</string>
+    <string name="settings_cyanogenmod_title" translatable="false">CyanogenMod</string>
+    <string name="settings_self_title" translatable="false">Andrew Neal</string>
+    <string name="settings_lopez_title" translatable="false">A.J. Lopez</string>
     <string name="settings_lopez_summary">Icon and Play Store banner design</string>
     <string name="settings_color_scheme_title">Choose Apollo\'s default color scheme</string>
     <string name="settings_color_scheme_summary">Changes the accent color in Apollo</string>
