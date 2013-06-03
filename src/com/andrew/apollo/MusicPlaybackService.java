@@ -66,6 +66,9 @@ import java.util.LinkedList;
 import java.util.Random;
 import java.util.TreeSet;
 
+import net.dinglisch.android.tasker.ActionCodes;
+import net.dinglisch.android.tasker.TaskerIntent;
+
 /**
  * A backbround {@link Service} used to keep music playing between activities
  * and when the user moves Apollo into the background.
@@ -565,7 +568,7 @@ public class MusicPlaybackService extends Service {
 
         // Use the remote control APIs (if available and the user allows it) to
         // set the playback state
-        mEnableLockscreenControls = PreferenceUtils.getInstace(this)
+        mEnableLockscreenControls = PreferenceUtils.getInstance(this)
                 .enableLockscreenControls();
         setUpRemoteControlClient();
 
@@ -1400,8 +1403,37 @@ public class MusicPlaybackService extends Service {
             saveQueue(false);
         }
 
-        if (mBuildNotification && what.equals(PLAYSTATE_CHANGED)) {
-            mNotificationHelper.updatePlayState(isPlaying());
+        if (what.equals(PLAYSTATE_CHANGED)) {
+            // if ( TaskerIntent.testStatus( this ).equals(
+            // TaskerIntent.Status.OK ) ) {
+            TaskerIntent i = new TaskerIntent();
+            Log.d("JORDAN", "PLAYSTATE_CHANGED, playing = " + isPlaying());
+            if(isPlaying()) {
+                i.addAction(ActionCodes.SET_VARIABLE)
+                        .addArg("%MARTIST")
+                        .addArg(getArtistName())
+                        .addArg(false)
+                        .addArg(false)
+                        .addArg(false);
+
+                i.addAction(ActionCodes.SET_VARIABLE)
+                        .addArg("%MALBUM")
+                        .addArg(getAlbumName())
+                        .addArg(false)
+                        .addArg(false)
+                        .addArg(false);
+            } else {
+                i.addAction(ActionCodes.CLEAR_VARIABLE)
+                        .addArg("%MARTIST");
+                i.addAction(ActionCodes.CLEAR_VARIABLE)
+                        .addArg("%MALBUM");
+            }
+
+            sendBroadcast(i);
+            // }
+            if (mBuildNotification) {
+                mNotificationHelper.updatePlayState(isPlaying());
+            }
         }
 
         // Update the app-widgets
