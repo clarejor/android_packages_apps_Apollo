@@ -1423,9 +1423,14 @@ public class MusicPlaybackService extends Service {
                         .addArg(false);
             } else {
                 i.addAction(ActionCodes.CLEAR_VARIABLE)
-                        .addArg("%MARTIST");
+                        .addArg("%MARTIST")
+                        .addArg(false)
+                        .addArg(false);
+                
                 i.addAction(ActionCodes.CLEAR_VARIABLE)
-                        .addArg("%MALBUM");
+                        .addArg("%MALBUM")
+                        .addArg(false)
+                        .addArg(false);
             }
             
             sendBroadcast(i);
