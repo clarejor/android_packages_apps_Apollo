@@ -1365,7 +1365,7 @@ public class MusicPlaybackService extends Service {
      * Notify the change-receivers that something has changed.
      */
     private void notifyChange(final String what) {
-        if (!isFileReadable(mPlayList[mPlayPos])) {
+        if (mPlayList != null && !isFileReadable(mPlayList[mPlayPos])) {
             return;
         }
 
@@ -1407,7 +1407,6 @@ public class MusicPlaybackService extends Service {
             // if ( TaskerIntent.testStatus( this ).equals(
             // TaskerIntent.Status.OK ) ) {
             TaskerIntent i = new TaskerIntent();
-            Log.d("JORDAN", "PLAYSTATE_CHANGED, playing = " + isPlaying());
             if(isPlaying()) {
                 i.addAction(ActionCodes.SET_VARIABLE)
                         .addArg("%MARTIST")
@@ -3106,8 +3105,13 @@ public class MusicPlaybackService extends Service {
          */
         @Override
         public boolean isCurrentFileAvailable() throws RemoteException {
-            MusicPlaybackService mps = mService.get();
-            return mps.isFileReadable(mps.mPlayList[mps.mPlayPos]);
+            if (mService != null) {
+                MusicPlaybackService mps = mService.get();
+                if (mps != null && mps.mPlayList != null) {
+                    return mps.isFileReadable(mps.mPlayList[mps.mPlayPos]);
+                }
+            }
+            return false;
         }
 
         /**
