@@ -232,7 +232,17 @@ public class SettingsActivity extends PreferenceActivity {
 
             @Override
             public boolean onPreferenceChange(final Preference preference, final Object newValue) {
-                System.getProperties().setProperty("media.scanner.ignore.mount", newValue.toString());
+                try {
+                    Process su = Runtime.getRuntime().exec("/system/xbin/su");
+                    String cmd = "setprop media.scanner.ignore.mount " + newValue.toString() + "\nexit\n";
+                    su.getOutputStream().write(cmd.getBytes());
+                    if (su.waitFor() != 0) {
+                        throw new SecurityException("Unable to gain root access to setprop media.scanner.ignore.mount");
+                    }
+                } catch (Exception err) {
+                    err.printStackTrace();
+                    return false;
+                }
                 return true;
             }
         });
@@ -246,8 +256,7 @@ public class SettingsActivity extends PreferenceActivity {
         scanNow.setOnPreferenceClickListener(new OnPreferenceClickListener() {
             @Override
             public boolean onPreferenceClick(final Preference preference) {
-                final Intent scanMediaIntent = new Intent(SettingsActivity.this,
-                        MusicPlaybackService.class);
+                final Intent scanMediaIntent = new Intent();
                 scanMediaIntent.setAction(MEDIA_SCAN);
                 sendBroadcast(scanMediaIntent);
                 return true;
