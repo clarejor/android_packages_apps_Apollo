@@ -1403,7 +1403,7 @@ public class MusicPlaybackService extends Service {
             saveQueue(false);
         }
 
-        if (what.equals(PLAYSTATE_CHANGED)) {
+        if(what.equals(META_CHANGED) || what.equals(PLAYSTATE_CHANGED)) {
             // if ( TaskerIntent.testStatus( this ).equals(
             // TaskerIntent.Status.OK ) ) {
             TaskerIntent i = new TaskerIntent();
@@ -1435,6 +1435,9 @@ public class MusicPlaybackService extends Service {
             
             sendBroadcast(i);
             // }
+        }
+
+        if (what.equals(PLAYSTATE_CHANGED)) {
             if (mBuildNotification) {
                 mNotificationHelper.updatePlayState(isPlaying());
             }
