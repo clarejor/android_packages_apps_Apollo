@@ -813,12 +813,10 @@ public class MusicPlaybackService extends Service {
      * Called when we receive an ACTION_MEDIA_EJECT notification.
      */
     public void closeExternalStorageFiles() {
-        if (mPlayPos >= 0 && mPlayPos < mPlayList.length
-                && !isFileReadable(mPlayList[mPlayPos])) {
+        if (!isFileReadable(mPlayPos)) {
             stop(false);
         }
-        if (mNextPlayPos >= 0 && mNextPlayPos < mPlayList.length
-                && !isFileReadable(mPlayList[mNextPlayPos])) {
+        if (!isFileReadable(mNextPlayPos)) {
             mPlayer.stopNext();
 
         }
@@ -854,7 +852,7 @@ public class MusicPlaybackService extends Service {
 
                         // Is the current file located on the ejected media?
                         Log.d("JORDAN", "#### mFileToPlay: " + mFileToPlay);
-                        if (!isFileReadable(mPlayList[mPlayPos])) {
+                        if (!isFileReadable(mPlayPos)) {
                             // The current file was ejected
                             Log.d("JORDAN", "### current file ejected!");
                             saveQueue(true);
@@ -888,7 +886,7 @@ public class MusicPlaybackService extends Service {
                         // Is the current file located on the mounted media?
                         Log.d("JORDAN", "#### mFileToPlay: " + mFileToPlay);
                         if (mPausedByMediaEject) {
-                            if (isFileReadable(mPlayList[mPlayPos])) {
+                            if (isFileReadable(mPlayPos)) {
                                 Log.d("JORDAN", "### current file available!");
                                 reloadQueue();
                                 mQueueIsSaveable = true;
@@ -1158,14 +1156,11 @@ public class MusicPlaybackService extends Service {
         boolean available = true;
         do {
             nextPos = doGetNextPosition(force);
-
-            if (nextPos >= 0 && nextPos < mPlayList.length) {
-                available = isFileReadable(mPlayList[nextPos]);
-            } else {
-                return -1;
-            }
+            available = isFileReadable(nextPos);
             skips++;
+            
         } while (!available && skips < 5);
+        
         if (!available) {
             return -1;
         }
@@ -1365,7 +1360,7 @@ public class MusicPlaybackService extends Service {
      * Notify the change-receivers that something has changed.
      */
     private void notifyChange(final String what) {
-        if (mPlayList != null && mPlayPos > 0 && mPlayPos < mPlayList.length && !isFileReadable(mPlayList[mPlayPos])) {
+        if (!isFileReadable(mPlayPos)) {
             return;
         }
 
@@ -1414,7 +1409,7 @@ public class MusicPlaybackService extends Service {
                         .addArg(false)
                         .addArg(false)
                         .addArg(false);
-
+    
                 i.addAction(ActionCodes.SET_VARIABLE)
                         .addArg("%MALBUM")
                         .addArg(getAlbumName())
@@ -1436,7 +1431,7 @@ public class MusicPlaybackService extends Service {
             sendBroadcast(i);
             // }
         }
-
+        
         if (what.equals(PLAYSTATE_CHANGED)) {
             if (mBuildNotification) {
                 mNotificationHelper.updatePlayState(isPlaying());
@@ -2009,11 +2004,17 @@ public class MusicPlaybackService extends Service {
     }
 
     /**
-     * @return True if the given media id is readable on the filesystem.
+     * @return True if the file at the playlist position is readable on the filesystem.
      */
-    public boolean isFileReadable(long id) {
-        Log.d("JORDAN", "isFileAvailable(" + id + ")");
+    private boolean isFileReadable(int pos) {
+        Log.d("JORDAN", "isFileReadable(" + pos + ")");
 
+        // Get the media id for the play position
+        if(mPlayList == null || pos < 0 || pos >= mPlayList.length) {
+            return false;
+        }
+        long id = mPlayList[pos];
+        
         // Get the cursor for this id
         Cursor cursor = getCursorForId(id);
         if (cursor == null || cursor.getCount() == 0) {
@@ -2043,7 +2044,7 @@ public class MusicPlaybackService extends Service {
         }
         return file.canRead();
     }
-
+    
     /**
      * True if the current track is a "favorite", false otherwise
      */
@@ -2964,7 +2965,9 @@ public class MusicPlaybackService extends Service {
         }
 
         public void stopNext() {
-            mNextMediaPlayer.reset();
+            if(mNextMediaPlayer != null) {
+                mNextMediaPlayer.reset();
+            }
         }
     }
 
@@ -3115,8 +3118,8 @@ public class MusicPlaybackService extends Service {
         public boolean isCurrentFileAvailable() throws RemoteException {
             if (mService != null) {
                 MusicPlaybackService mps = mService.get();
-                if (mps != null && mps.mPlayList != null) {
-                    return mps.isFileReadable(mps.mPlayList[mps.mPlayPos]);
+                if (mps != null) {
+                    return mps.isFileReadable(mps.mPlayPos);
                 }
             }
             return false;
