@@ -1365,7 +1365,7 @@ public class MusicPlaybackService extends Service {
      * Notify the change-receivers that something has changed.
      */
     private void notifyChange(final String what) {
-        if (mPlayList != null && !isFileReadable(mPlayList[mPlayPos])) {
+        if (mPlayList != null && mPlayPos > 0 && mPlayPos < mPlayList.length && !isFileReadable(mPlayList[mPlayPos])) {
             return;
         }
 
