@@ -11,6 +11,8 @@
 
 package com.andrew.apollo.ui.activities;
 
+import java.lang.reflect.Method;
+
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -49,7 +51,8 @@ public class SettingsActivity extends PreferenceActivity {
 
     private PreferenceUtils mPreferences;
 
-    protected String MEDIA_SCAN = "media.scanner.scan.now";
+    protected static final String MEDIA_SCAN = "media.scanner.scan.now";
+    protected static final String NOSCAN_MOUNT = "persist.sys.noscan_mount";
 
     /**
      * {@inheritDoc}
@@ -228,24 +231,41 @@ public class SettingsActivity extends PreferenceActivity {
      */
     private void ignoreMountEvents() {
         final CheckBoxPreference ignoreMountEvents = (CheckBoxPreference)findPreference("ignore_mount_events");
+        
+        try {
+            @SuppressWarnings("rawtypes")
+            Class systemPropertiesClass = Class.forName("android.os.SystemProperties");
+            Method get = systemPropertiesClass.getMethod("get", new Class[]{ String.class });
+            String initialValue = (String) get.invoke(systemPropertiesClass, new Object[]{ NOSCAN_MOUNT });
+
+            ignoreMountEvents.setChecked(initialValue != null && initialValue.equals("1"));
+        } catch (Exception e) {
+        }
+        
         ignoreMountEvents.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
 
             @Override
             public boolean onPreferenceChange(final Preference preference, final Object newValue) {
-                try {
-                    Process su = Runtime.getRuntime().exec("/system/xbin/su");
-                    String cmd = "setprop media.scanner.ignore.mount " + newValue.toString() + "\nexit\n";
-                    su.getOutputStream().write(cmd.getBytes());
-                    if (su.waitFor() != 0) {
-                        throw new SecurityException("Unable to gain root access to setprop media.scanner.ignore.mount");
-                    }
-                } catch (Exception err) {
-                    err.printStackTrace();
-                    return false;
-                }
-                return true;
+                boolean bVal = (Boolean) newValue;
+                return su("setprop " + NOSCAN_MOUNT + " " + (bVal ? "1" : "0"));
             }
         });
+    }
+    
+    private boolean su(String cmd) {
+        cmd += "\nexit\n";
+
+        try {
+            Process su = Runtime.getRuntime().exec("/system/xbin/su");
+            su.getOutputStream().write(cmd.getBytes());
+            if (su.waitFor() != 0) {
+                throw new SecurityException("Unable to gain root access");
+            }
+        } catch (Exception err) {
+            err.printStackTrace();
+            return false;
+        }
+        return true;
     }
     
     /**
