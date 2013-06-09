@@ -17,6 +17,7 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -177,8 +178,13 @@ public class ProfileTabCarousel extends HorizontalScrollView implements OnTouchL
             mScrollScaleFactor = screenWidth / mAllowedHorizontalScrollLength;
         }
 
-        final int tabHeight = Math.round(screenWidth * tabHeightScreenWidthFraction)
+        int tabHeight = Math.round(screenWidth * tabHeightScreenWidthFraction)
                 + mTabShadowHeight;
+        
+        if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            tabHeight *= 0.5;
+        }
+        
         if (getChildCount() > 0) {
             final View child = getChildAt(0);
 
